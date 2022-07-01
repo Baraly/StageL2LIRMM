@@ -214,9 +214,6 @@ def afficherGraphe(phrase):
             if arc.getTypeConnexion() == 0 and arc.getDebut() != 0:
                 n = graph.get_node('' + p[0][arc.getDebut()].getValue().getMot())
                 n.attr['fillcolor'] = "#FFC300"
-            # elif arc.getTypeConnexion() == 3:
-            # n = graph.get_node('' + p[0][arc.getArrive()].getValue().getMot())
-            # n.attr['fillcolor'] = "#FF5733"
 
         graph.layout('dot')
 
@@ -228,36 +225,67 @@ def afficherGraphe(phrase):
         indice += 1
 
 
-def calculCheminPlusCourt(arcs, connexion, debut, arrive):
-    if debut == arrive:
-        return []
-    elif connexion[debut]:
-        for voisin in connexion[debut]:
-            calculCheminPlusCourt(arcs, connexion, arcs[voisin].getArrive(), arrive)
-
-    else:
-        return [-1]
-
-
-def getInfos(id_noeud, listeNoeud, listArcs, listArcEntrant):
-    print(listeNoeud[id_noeud])
-    if listeNoeud[id_noeud].getValue().getType() == "NOUN":
-        return [listeNoeud[id_noeud].getValue().getMot()]
-    elif listeNoeud[id_noeud].getValue().getType() == "GN":
+def getInfoBETA(id_noeud, listeNoeud, listArcs, listArcEntrant, regles):
+    while True:
+        parents = []
         for voisin in listArcEntrant[id_noeud]:
-            return [getInfos(listArcs[voisin].getDebut(), listeNoeud, listArcs, listArcEntrant)]
-    elif listeNoeud[id_noeud].getValue().getType() == "GN+GV":
+            if listArcs[voisin].getTypeConnexion() == 1:
+                parents.append(listArcs[voisin].getDebut())
+
+        print("Les voisins de " + str(id_noeud) + " sont : " + str(listArcEntrant[id_noeud]))
+        if len(parents) == 2:
+            p1 = parents[0]
+            p2 = parents[1]
+
+            print("Pour le type : " + listeNoeud[id_noeud].getValue().getType() + ", on a :")
+            print(listeNoeud[p1].getValue().getType() + " + " + listeNoeud[p2].getValue().getType())
+            n = input("\nChoissiez : ")
+
+            if int(n) == 1:
+                return getInfoBETA(p1, listeNoeud, listArcs, listArcEntrant, regles)
+            else:
+                return getInfoBETA(p2, listeNoeud, listArcs, listArcEntrant, regles)
+
+        else:
+            print("Nous sommes arrivés à " + listeNoeud[id_noeud].getValue().getMot())
+            return
+
+
+def getInfo(id_noeud, listeNoeud, listArcs, listArcEntrant, regles):
+    while True:
+        parents = []
         for voisin in listArcEntrant[id_noeud]:
-            if listeNoeud[listArcs[voisin].getDebut()].getValue().getType() == "GN":
-                return [getInfos(listArcs[voisin].getDebut(), listeNoeud, listArcs, listArcEntrant)]
-    elif listeNoeud[id_noeud].getValue().getType() == "PHRASE":
-        print("TROUVÉ")
-        for voisin in listArcEntrant[id_noeud]:
-            return [getInfos(listArcs[voisin].getDebut(), listeNoeud, listArcs, listArcEntrant)]
+            if listArcs[voisin].getTypeConnexion() == 1:
+                parents.append(listArcs[voisin].getDebut())
+
+        if len(parents) == 2:
+
+            for p in parents:
+                if listeNoeud[p].getValue().getType() == "GN":
+                    return getInfo(p, listeNoeud, listArcs, listArcEntrant, regles)
+                if listeNoeud[p].getValue().getType() == "GN+GV":
+                    return getInfo(p, listeNoeud, listArcs, listArcEntrant, regles)
+                if listeNoeud[p].getValue().getType() == "GN+GV+CDN":
+                    return getInfo(p, listeNoeud, listArcs, listArcEntrant, regles)
+                if listeNoeud[p].getValue().getType() == "PRON":
+                    print("La phrase parle d'un : " + listeNoeud[p].getValue().getMot())
+                    return
+                if listeNoeud[p].getValue().getType() == "NOUN":
+                    print("La phrase parle d'un : " + listeNoeud[p].getValue().getMot())
+                    return
+
+            print("La phrase parle d'un : " + listeNoeud[id_noeud].getValue().getMot())
+
+            return
+
+
+        else:
+            print("ERROR")
+            return
 
 
 def main():
-    phrase = "Le chien mange une saucisse."
+    phraseInit = "Le grand classeur rouge est rangé."
 
     # Le chien mange une saucisse.
     # Le chat noir boit calmement du lait frais de chêvre que sa jolie maîtresse lui a acheté au supermarché du village d'à coté.
@@ -266,7 +294,7 @@ def main():
     # Le grand classeur rouge est rangé.
 
     nlp = stanza.Pipeline(lang='fr', processors='tokenize,mwt,pos,lemma')
-    doc = nlp(phrase)
+    doc = nlp(phraseInit)
 
     # phrase = [[Noeud[] , Arc[], ArcEntrant[], ArcSortant[]], Noeud[] , Arc[], ArcEntrant[], ArcSortant[]], ...]
 
@@ -277,10 +305,12 @@ def main():
         ('VERB', 'GN', 'GV'),  # mange une pomme
         ('DET', 'GN', 'GN'),  # le gros chat
         ('VERB', 'ADV', 'GV'),  # boit calmement
+        ('AUX', 'ADV', 'GV'),  # est actuellement
         ('DET', 'GN+PRON+GV', 'GN+PRON+GV'),  # sa jolie maîtresse lui a acheté
         ('ADJ', 'NOUN', 'GN'),  # gros chat
         ('ADJ', 'GN', 'GN'),  # longue voiture rouge
         ('GN', 'ADJ', 'GN'),  # longue voiture rouge
+        ('GN', 'CDN', 'GN'),  # le chat de la craimière
         # ('VERB', 'ADJ', 'GV'),
         ('AUX', 'ADJ', 'GV'),  # suis beau
         ('AUX', 'GN', 'GV'),  # suis un garçon
@@ -289,9 +319,10 @@ def main():
         ('GN', 'GV', 'GN+GV'),  # le chat boit
         ('GN+PRON', 'VERB', 'GN+PRON+GV'),  # sa jolie maîtresse lui a acheté
         ('GN+PRON', 'GV+PUNCT', 'GN+PRON+GV'),  # sa jolie maîtresse lui a acheté .
-        ('GN+PRON+GV', 'CDN', 'GN+PRON+GV'),  #
-        ('GN+GV', 'CDN', 'GN+GV'),  # le chat boit du lait de chêvre
+        # ('GN+PRON+GV', 'CDN', 'GN+PRON+GV'),  #
+        ('GN+GV', 'CDN', 'GN+GV+CDN'),  # le chat boit du lait de chêvre
         ('ADP', 'CDN', 'CDN'),  # d'à coté
+        ('CDN', 'ADP', 'CDN'),  # en train de
         ('GN+GV', 'PUNCT', 'PHRASE'),  # le chat boit .
         ('ADP', 'NOUN', 'CDN'),  # de chêvre (Complément Du Nom)
         ('ADP', 'GN', 'CDN'),  # de chêvre blanche
@@ -301,7 +332,9 @@ def main():
         ('GN', 'PRON', 'GN+PRON'),  # sa jolie maîtresse lui
         ('PRON', 'GN+PRON+GV', 'SUBRELA'),  # que sa maîtresse lui a acheté
         ('SCONJ', 'GN+PRON+GV', 'SUBRELA'),  # que sa maîtresse lui a acheté ('que' peut varier de type..)
-        ('GN+GV', 'SUBRELA', 'GN+GV'),  # le chat boit du lait que sa maîtresse lui a acheté
+        ('GN+GV+CDN', 'SUBRELA', 'GN+GV'),  # le chat boit du lait que sa maîtresse lui a acheté
+        ('GN+GV+CDN', 'GV', 'GN+GV'),  # l'ordinateur est actuellement en train de faire des calculs
+        ('GN+GV+CDN', 'PUNCT', 'GN+GV+CDN'),
         ('VERB', 'PUNCT', 'GV'),  # suis .
         # ('ADP', 'GV', 'COD'),
         # ('VERB', 'COD', 'GV')
@@ -316,15 +349,25 @@ def main():
 
     constructionGraphe(phrase, regles)
 
-    print(getInfos(len(phrase[0][0]) - 1, phrase[0][0], phrase[0][1], phrase[0][3]))
+    print()
+
+    for p in phrase[0][0]:
+        print(str(p.getValue().getMot()) + " (" + str(p.getValue().getType()) + ")")
+
+    print()
+
+    # print(phrase[0][0][len(phrase[0][0]) - 1])
+
+    print("Dans la phrase :\n'" + phraseInit + "'\n")
+    getInfo(len(phrase[0][0]) - 1, phrase[0][0], phrase[0][1], phrase[0][3], regles)
 
     ajoutLemme(phrase, nlp)
 
     print()
 
     for i in phrase:
-        print("Arcs Sortants :", i[2])
-        print("Arcs Entrants :", i[3])
+        # print("Arcs Sortants :", i[2])
+        # print("Arcs Entrants :", i[3])
         print()
 
     afficherGraphe(phrase)
